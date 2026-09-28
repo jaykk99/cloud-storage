@@ -67,4 +67,8 @@ npm run dev
 4. Deploy!
 
 ## Default Access Key
-The vault lock screen uses key: **`999`** (change `ACCESS_KEY` in `App.jsx`)
+The vault lock screen uses key: **`999`** (override with `VITE_ACCESS_KEY` in `.env.local` or Vercel env vars). Change it — the default is public.
+
+## Graceful Degradation
+- No Supabase vars → the app shows a setup notice instead of a broken login.
+- No Gemini key → the AI Copilot tab explains itself and stays inert; the rest of the vault works normally.

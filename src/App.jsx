@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { supabase } from './supabase'
+import { supabase, isSupabaseConfigured } from './supabase'
 import {
   Upload, FileText, Trash2, Lock, Key, HardDrive,
   Bot, Send, Download, LayoutDashboard, FolderOpen,
@@ -7,7 +7,9 @@ import {
   LogOut, CheckCircle
 } from 'lucide-react'
 
-const ACCESS_KEY = '999'
+// Override via the VITE_ACCESS_KEY env var. The default is a demo value —
+// set your own in .env.local or Vercel so the published lock code isn't guessable.
+const ACCESS_KEY = import.meta.env.VITE_ACCESS_KEY || '999'
 const TOTAL_QUOTA_BYTES = 100 * 1024 * 1024 * 1024
 
 function formatBytes(bytes, d = 2) {
@@ -246,6 +248,10 @@ export default function App() {
     const sys = `You are CloudVault AI. Storage: ${formatBytes(used)}/100 GB. Files: ${files.length} (${cats.documents.length} docs, ${cats.images.length} images, ${cats.media.length} media, ${cats.others.length} other). Files: ${JSON.stringify(files.map(f => ({ name: f.name, size: formatBytes(f.size || 0), type: f.type, date: f.created_at?.split('T')[0] })))}. Reply in 2-4 sentences.`
     try {
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY || ''
+      if (!apiKey) {
+        setChatMessages(prev => [...prev, { sender: 'bot', text: "The AI Copilot needs a Gemini key. Add VITE_GEMINI_API_KEY to your .env.local (see .env.example) and redeploy — everything else in the vault works without it." }])
+        return
+      }
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: msg }] }], systemInstruction: { parts: [{ text: sys }] } })
@@ -269,6 +275,21 @@ export default function App() {
 
   if (!unlocked) return <LockScreen onUnlock={() => setUnlocked(true)} />
   if (!sessionChecked) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><RefreshCw className="text-blue-400 animate-spin" size={32} /></div>
+  if (!isSupabaseConfigured) return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
+      <div className="bg-slate-900 border border-amber-900/60 rounded-3xl p-8 w-full max-w-md shadow-2xl text-center">
+        <div className="inline-flex p-4 bg-amber-500/10 text-amber-400 rounded-2xl mb-6">
+          <AlertCircle className="w-12 h-12" />
+        </div>
+        <h2 className="text-xl font-extrabold text-white mb-2">Supabase Not Configured</h2>
+        <p className="text-slate-400 text-sm mb-6">
+          Copy <code className="text-amber-300">.env.example</code> to <code className="text-amber-300">.env.local</code> and set{' '}
+          <code className="text-amber-300">VITE_SUPABASE_URL</code> and <code className="text-amber-300">VITE_SUPABASE_ANON_KEY</code>,
+          then restart the dev server. The vault unlocks and works fully keyless besides Supabase itself.
+        </p>
+      </div>
+    </div>
+  )
   if (!user) return <AuthScreen />
 
   const TABS = [
