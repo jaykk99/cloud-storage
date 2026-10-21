@@ -7,7 +7,7 @@ A full-stack file storage app built with React + Supabase + Vercel.
 - 👤 Supabase Auth (sign up / sign in)
 - 📁 File browser: grid/list views, folders + breadcrumbs, search, category filters, 6 sort orders
 - ⬆️ Drag-and-drop multi-file uploads with real progress bars, concurrency, cancel, retry, and exponential-backoff retries
-- 📂 Upload a whole folder — its structure is preserved in the vault
+- 📂 Upload a whole folder, keeping its structure in the vault
 - 🖼️ File previews: images (with thumbnails), video/audio players, text preview, signed URLs
 - ✏️ Rename files, 🗑️ delete with confirmation, ⬇️ downloads
 - ☑️ Multi-select: bulk delete and bulk move into another folder (or vault root); per-file Move action too
