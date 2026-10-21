@@ -228,10 +228,80 @@ export function useFiles(user, notify) {
     }
   }, [notify])
 
+  // Move one file into another folder ('' = vault root). The storage object
+  // is moved server-side, then the DB row is repointed; the timestamp-stamped
+  // filename is kept so nothing collides.
+  const moveFile = useCallback(async (file, targetFolder) => {
+    const clean = String(targetFolder || '').trim().replace(/^\/+|\/+$/g, '')
+    if (clean.includes('..') || /[\\]/.test(clean)) {
+      notify?.('That folder name is not allowed.', 'error')
+      return false
+    }
+    const currentDir = relativeDir(file.storage_path, user.id)
+    if (currentDir === clean) return true // already there — no-op
+    const filename = (file.storage_path.split('/').pop() || '').replace(/^\/+/, '')
+    if (!filename) { notify?.('Could not move: bad storage path.', 'error'); return false }
+    const newPath = `${user.id}/${clean ? clean + '/' : ''}${filename}`
+    try {
+      await withRetry(async () => {
+        const r = await supabase.storage.from(BUCKET).move(file.storage_path, newPath)
+        if (r.error) throw r.error
+      })
+      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(newPath)
+      const { error } = await supabase.from('files')
+        .update({ storage_path: newPath, public_url: urlData.publicUrl })
+        .eq('id', file.id)
+      if (error) throw error
+      setFiles(p => p.map(f => (f.id === file.id
+        ? { ...f, storage_path: newPath, public_url: urlData.publicUrl } : f)))
+      notify?.(`Moved "${file.name}" to ${clean ? `/${clean}` : 'vault root'}`, 'success')
+      return true
+    } catch (e) {
+      notify?.(`Move failed: ${friendlyError(e)}`, 'error')
+      return false
+    }
+  }, [user, notify])
+
+  // Move several files; reports one summary toast at the end.
+  const moveFiles = useCallback(async (list, targetFolder) => {
+    if (!list.length) return
+    let ok = 0
+    for (const f of list) { if (await moveFile(f, targetFolder)) ok++ }
+    if (ok < list.length) notify?.(`Moved ${ok} of ${list.length} files`, 'error')
+  }, [moveFile, notify])
+
+  // Delete several files at once. Optimistic removal; failures are restored
+  // and reported with one summary toast (no per-file toast spam).
+  const deleteFiles = useCallback(async list => {
+    if (!list.length) return
+    const ids = new Set(list.map(f => f.id))
+    const prev = files
+    setFiles(p => p.filter(f => !ids.has(f.id)))
+    const failed = []
+    for (const file of list) {
+      try {
+        await withRetry(async () => {
+          const r = await supabase.storage.from(BUCKET).remove([file.storage_path])
+          if (r.error) throw r.error
+        })
+        await withRetry(async () => {
+          const r = await supabase.from('files').delete().eq('id', file.id)
+          if (r.error) throw r.error
+        })
+      } catch { failed.push(file) }
+    }
+    if (failed.length) {
+      setFiles(p => [...p, ...failed]) // restore what failed
+      notify?.(`Deleted ${list.length - failed.length} of ${list.length} files. ${failed.length} failed — they were restored.`, 'error')
+    } else {
+      notify?.(`Deleted ${list.length} file${list.length === 1 ? '' : 's'}`, 'success')
+    }
+  }, [files, notify])
+
   return {
     files, loading, loadError, fetchFiles,
     uploads, enqueueUploads, retryUpload, cancelUpload, clearFinished,
-    deleteFile, renameFile, createFolder, downloadFile,
+    deleteFile, deleteFiles, renameFile, moveFile, moveFiles, createFolder, downloadFile,
     maxUploadMB: MAX_UPLOAD_MB,
   }
 }

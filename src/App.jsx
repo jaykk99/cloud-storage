@@ -82,7 +82,8 @@ export default function App() {
           <FileBrowser
             files={fm.files} loading={fm.loading} loadError={fm.loadError}
             fetchFiles={fm.fetchFiles} user={user}
-            deleteFile={deleteFile} renameFile={renameFile}
+            deleteFile={deleteFile} deleteFiles={fm.deleteFiles}
+            renameFile={renameFile} moveFiles={fm.moveFiles}
             createFolder={fm.createFolder} downloadFile={downloadFile}
             preview={preview} setPreview={setPreview}
             onFolderChange={setCurrentFolder}

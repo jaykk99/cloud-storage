@@ -3,6 +3,7 @@ import {
   Download, Trash2, RefreshCw,
   Search, LayoutGrid, List, ChevronRight, Folder, FolderPlus,
   Pencil, Eye, Home, ArrowUpDown, X, FolderSearch,
+  FolderInput, CheckSquare, Square,
 } from 'lucide-react'
 import { formatBytes, formatDate, getFileCategory, displayName } from '../lib/format'
 import { relativeDir } from '../hooks/useFiles'
@@ -28,23 +29,39 @@ function Thumb({ file }) {
   return <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" onError={() => setFailed(true)} />
 }
 
-function Actions({ file, onPreview, onDownload, onRename, onDelete }) {
+function SelectBox({ checked, onChange, label }) {
+  return (
+    <button onClick={e => { e.stopPropagation(); onChange() }} title={label} aria-label={label}
+      className="p-1 rounded-md text-slate-400 hover:text-white transition shrink-0">
+      {checked
+        ? <CheckSquare size={20} className="text-blue-400" />
+        : <Square size={20} />}
+    </button>
+  )
+}
+
+function Actions({ file, onPreview, onDownload, onRename, onMove, onDelete }) {
   const btn = 'p-2 rounded-lg transition text-slate-500 hover:text-white hover:bg-slate-800'
   return (
     <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
       <button onClick={() => onPreview(file)} title="Preview" aria-label={`Preview ${file.name}`} className={btn}><Eye size={16} /></button>
       <button onClick={() => onDownload(file)} title="Download" aria-label={`Download ${file.name}`} className={`${btn} hover:!text-blue-400`}><Download size={16} /></button>
       <button onClick={() => onRename(file)} title="Rename" aria-label={`Rename ${file.name}`} className={btn}><Pencil size={16} /></button>
+      {onMove && (
+        <button onClick={() => onMove(file)} title="Move to folder" aria-label={`Move ${file.name} to folder`} className={btn}><FolderInput size={16} /></button>
+      )}
       <button onClick={() => onDelete(file)} title="Delete" aria-label={`Delete ${file.name}`} className={`${btn} hover:!text-red-400`}><Trash2 size={16} /></button>
     </div>
   )
 }
 
-export function FileRow({ file, onPreview, onDownload, onRename, onDelete }) {
+export function FileRow({ file, onPreview, onDownload, onRename, onMove, onDelete, selectMode, selected, onToggleSelect }) {
+  const click = () => (selectMode ? onToggleSelect(file.id) : onPreview(file))
   return (
-    <div onClick={() => onPreview(file)}
-      className="bg-slate-950 border border-slate-800 hover:border-slate-700 p-3.5 rounded-xl flex items-center justify-between gap-3 cursor-pointer transition group">
+    <div onClick={click}
+      className={`bg-slate-950 border hover:border-slate-700 p-3.5 rounded-xl flex items-center justify-between gap-3 cursor-pointer transition group ${selected ? 'border-blue-600' : 'border-slate-800'}`}>
       <div className="flex items-center gap-3 overflow-hidden min-w-0">
+        {selectMode && <SelectBox checked={selected} onChange={() => onToggleSelect(file.id)} label={`Select ${file.name}`} />}
         <div className="w-11 h-11 rounded-lg bg-slate-900 border border-slate-800 overflow-hidden flex items-center justify-center shrink-0">
           {getFileCategory(file.type) === 'images' ? <Thumb file={file} /> : <FileIconComp type={file.type} size={20} />}
         </div>
@@ -53,21 +70,29 @@ export function FileRow({ file, onPreview, onDownload, onRename, onDelete }) {
           <span className="text-xs text-slate-500">{formatBytes(file.size || 0)} &bull; {formatDate(file.created_at)}</span>
         </div>
       </div>
-      <Actions file={file} onPreview={onPreview} onDownload={onDownload} onRename={onRename} onDelete={onDelete} />
+      {!selectMode && <Actions file={file} onPreview={onPreview} onDownload={onDownload} onRename={onRename} onMove={onMove} onDelete={onDelete} />}
     </div>
   )
 }
 
-function FileCard({ file, onPreview, onDownload, onRename, onDelete }) {
+function FileCard({ file, onPreview, onDownload, onRename, onMove, onDelete, selectMode, selected, onToggleSelect }) {
   const isImg = getFileCategory(file.type) === 'images'
+  const click = () => (selectMode ? onToggleSelect(file.id) : onPreview(file))
   return (
-    <div onClick={() => onPreview(file)}
-      className="bg-slate-950 border border-slate-800 hover:border-slate-600 rounded-2xl overflow-hidden cursor-pointer transition group flex flex-col">
+    <div onClick={click}
+      className={`bg-slate-950 border hover:border-slate-600 rounded-2xl overflow-hidden cursor-pointer transition group flex flex-col relative ${selected ? '!border-blue-600' : 'border-slate-800'}`}>
+      {selectMode && (
+        <div className="absolute top-2 left-2 z-10 bg-slate-950/80 rounded-md">
+          <SelectBox checked={selected} onChange={() => onToggleSelect(file.id)} label={`Select ${file.name}`} />
+        </div>
+      )}
       <div className="aspect-[4/3] bg-slate-900 flex items-center justify-center overflow-hidden relative">
         {isImg ? <Thumb file={file} /> : <FileIconComp type={file.type} size={40} />}
-        <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition flex justify-end">
-          <Actions file={file} onPreview={onPreview} onDownload={onDownload} onRename={onRename} onDelete={onDelete} />
-        </div>
+        {!selectMode && (
+          <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition flex justify-end">
+            <Actions file={file} onPreview={onPreview} onDownload={onDownload} onRename={onRename} onMove={onMove} onDelete={onDelete} />
+          </div>
+        )}
       </div>
       <div className="p-3">
         <h4 className="text-sm font-semibold text-white truncate" title={file.name}>{displayName(file.name)}</h4>
@@ -108,7 +133,7 @@ const CATS = [
 ]
 
 export default function FileBrowser(props) {
-  const { files, loading, loadError, fetchFiles, user, deleteFile, renameFile, createFolder, downloadFile,
+  const { files, loading, loadError, fetchFiles, user, deleteFile, deleteFiles, renameFile, moveFiles, createFolder, downloadFile,
     preview, setPreview, onFolderChange, renaming, setRenaming } = props
   const [view, setView] = useState(() => localStorage.getItem('cv_view') || 'grid')
   const [query, setQuery] = useState('')
@@ -118,6 +143,37 @@ export default function FileBrowser(props) {
   const [deleting, setDeleting] = useState(null)
   const [newFolderOpen, setNewFolderOpen] = useState(false)
   const [newFolderVal, setNewFolderVal] = useState('')
+  // Bulk selection + move
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState([])
+  const [moving, setMoving] = useState(null) // array of files being moved, or null
+  const [moveDest, setMoveDest] = useState('')
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+
+  const toggleSelect = id => setSelectedIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
+  const exitSelectMode = () => { setSelectMode(false); setSelectedIds([]) }
+  const selectedFiles = useMemo(() => files.filter(f => selectedIds.includes(f.id)), [files, selectedIds])
+
+  // Every folder in the vault (for the move destination picker).
+  const allFolders = useMemo(() => {
+    const set = new Set()
+    for (const f of files) {
+      const dir = relativeDir(f.storage_path, user.id)
+      if (dir) {
+        const parts = dir.split('/')
+        for (let i = 1; i <= parts.length; i++) set.add(parts.slice(0, i).join('/'))
+      }
+    }
+    return [...set].sort((a, b) => a.localeCompare(b))
+  }, [files, user.id])
+
+  const openMove = list => { setMoving(list); setMoveDest('') }
+  const confirmMove = () => {
+    if (!moving) return
+    moveFiles(moving, moveDest)
+    setMoving(null)
+    exitSelectMode()
+  }
 
   useEffect(() => { localStorage.setItem('cv_view', view) }, [view])
   useEffect(() => { onFolderChange?.(folder) }, [folder, onFolderChange])
@@ -194,6 +250,10 @@ export default function FileBrowser(props) {
           className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm font-semibold text-slate-300 hover:text-white hover:border-slate-600 transition">
           <FolderPlus size={16} /> <span className="hidden md:inline">New folder</span>
         </button>
+        <button onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))} title="Select files"
+          className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-sm font-semibold border transition ${selectMode ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white hover:border-slate-600'}`}>
+          <CheckSquare size={16} /> <span className="hidden md:inline">{selectMode ? 'Done' : 'Select'}</span>
+        </button>
         <button onClick={fetchFiles} title="Refresh" className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition">
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
@@ -208,6 +268,31 @@ export default function FileBrowser(props) {
           </button>
         ))}
       </div>
+
+      {/* Bulk action bar */}
+      {selectMode && (
+        <div className="flex flex-wrap items-center gap-2 mb-4 px-4 py-3 rounded-xl bg-blue-950/40 border border-blue-900/50">
+          <span className="text-sm font-semibold text-blue-200">
+            {selectedIds.length} selected
+          </span>
+          <div className="flex-1" />
+          {selectedIds.length > 0 && (
+            <>
+              <button onClick={() => openMove(selectedFiles)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">
+                <FolderInput size={14} /> Move
+              </button>
+              <button onClick={() => setBulkDeleting(true)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-red-900/60 hover:bg-red-800 text-red-100 transition">
+                <Trash2 size={14} /> Delete
+              </button>
+            </>
+          )}
+          <button onClick={() => setSelectedIds([])} className="px-3 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition">
+            Clear
+          </button>
+        </div>
+      )}
 
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-1 text-sm mb-4 overflow-x-auto" aria-label="Folders">
@@ -250,15 +335,17 @@ export default function FileBrowser(props) {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
               {visible.map(f => <FileCard key={f.id} file={f}
                 onPreview={setPreview} onDownload={downloadFile}
-                onRename={setRenaming}
-                onDelete={setDeleting} />)}
+                onRename={setRenaming} onMove={file => openMove([file])}
+                onDelete={setDeleting}
+                selectMode={selectMode} selected={selectedIds.includes(f.id)} onToggleSelect={toggleSelect} />)}
             </div>
           ) : (
             <div className="grid gap-2.5">
               {visible.map(f => <FileRow key={f.id} file={f}
                 onPreview={setPreview} onDownload={downloadFile}
-                onRename={setRenaming}
-                onDelete={setDeleting} />)}
+                onRename={setRenaming} onMove={file => openMove([file])}
+                onDelete={setDeleting}
+                selectMode={selectMode} selected={selectedIds.includes(f.id)} onToggleSelect={toggleSelect} />)}
             </div>
           )}
           <p className="text-xs text-slate-600 mt-4">{visible.length} file{visible.length === 1 ? '' : 's'}{folder && <> in <span className="font-mono">/{folder}</span></>}</p>
@@ -290,6 +377,44 @@ export default function FileBrowser(props) {
           message={`"${displayName(deleting.name)}" will be permanently removed from your vault. This can't be undone.`}
           onCancel={() => setDeleting(null)}
           onConfirm={() => { deleteFile(deleting); setDeleting(null) }} />
+      )}
+
+      {bulkDeleting && (
+        <ConfirmDialog title={`Delete ${selectedIds.length} file${selectedIds.length === 1 ? '' : 's'}?`}
+          message="The selected files will be permanently removed from your vault. This can't be undone."
+          confirmLabel="Delete all"
+          onCancel={() => setBulkDeleting(false)}
+          onConfirm={() => { deleteFiles(selectedFiles); setBulkDeleting(false); exitSelectMode() }} />
+      )}
+
+      {moving && (
+        <Modal onClose={() => setMoving(null)} labelledBy="Move files">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-white mb-1">Move {moving.length} file{moving.length === 1 ? '' : 's'}</h3>
+            <p className="text-sm text-slate-500 mb-4">Pick a destination folder.</p>
+            <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-800 mb-5">
+              <label className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition ${moveDest === '' ? 'bg-blue-950/50' : 'hover:bg-slate-800/60'}`}>
+                <input type="radio" name="moveDest" checked={moveDest === ''} onChange={() => setMoveDest('')} className="accent-blue-500" />
+                <Home size={16} className="text-slate-400" />
+                <span className="text-sm font-semibold text-white">Vault root</span>
+              </label>
+              {allFolders.map(f => (
+                <label key={f} className={`flex items-center gap-3 px-4 py-3 cursor-pointer border-t border-slate-800/60 transition ${moveDest === f ? 'bg-blue-950/50' : 'hover:bg-slate-800/60'}`}>
+                  <input type="radio" name="moveDest" checked={moveDest === f} onChange={() => setMoveDest(f)} className="accent-blue-500" />
+                  <Folder size={16} className="text-blue-400 shrink-0" />
+                  <span className="text-sm text-slate-200 font-mono truncate">/{f}</span>
+                </label>
+              ))}
+              {allFolders.length === 0 && (
+                <p className="px-4 py-3 text-sm text-slate-500">No folders yet — create one with the New folder button.</p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setMoving(null)} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:bg-slate-800 transition">Cancel</button>
+              <button onClick={confirmMove} className="px-4 py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition">Move here</button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   )

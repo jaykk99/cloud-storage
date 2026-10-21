@@ -9,6 +9,7 @@ A full-stack file storage app built with React + Supabase + Vercel.
 - ⬆️ Drag-and-drop multi-file uploads with real progress bars, concurrency, cancel, retry, and exponential-backoff retries
 - 🖼️ File previews: images (with thumbnails), video/audio players, text preview, signed URLs
 - ✏️ Rename files, 🗑️ delete with confirmation, ⬇️ downloads
+- ☑️ Multi-select: bulk delete and bulk move into another folder (or vault root); per-file Move action too
 - 📊 Dashboard with storage usage, per-category counts + bytes
 - 🤖 AI Copilot powered by Gemini 2.0 Flash (graceful keyless mode)
 - 🔔 Toast notifications, honest error messages (e.g. missing bucket / storage policies)
