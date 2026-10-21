@@ -43,6 +43,7 @@ function QueueItem({ item, onRetry, onCancel }) {
 
 export default function UploadZone({ uploads, enqueueUploads, retryUpload, cancelUpload, clearFinished, maxUploadMB, currentFolder }) {
   const inputRef = useRef(null)
+  const folderInputRef = useRef(null)
   const [dragging, setDragging] = useState(false)
   const [queueOpen, setQueueOpen] = useState(true)
   const dragCount = useRef(0)
@@ -57,6 +58,23 @@ export default function UploadZone({ uploads, enqueueUploads, retryUpload, cance
     if (e.dataTransfer.files?.length) enqueueUploads(e.dataTransfer.files, currentFolder)
   }
 
+  // Folder upload: webkitRelativePath ("docs/sub/file.pdf") is preserved so
+  // the folder structure lands in the vault, rooted at the current folder.
+  const onFolderPicked = e => {
+    const picked = [...(e.target.files || [])].filter(f => f.size > 0 || f.name)
+    e.target.value = ''
+    if (!picked.length) return
+    const byDir = new Map()
+    for (const f of picked) {
+      const rel = f.webkitRelativePath || f.name
+      const dir = rel.split('/').slice(0, -1).join('/')
+      const dest = [currentFolder, dir].filter(Boolean).join('/')
+      if (!byDir.has(dest)) byDir.set(dest, [])
+      byDir.get(dest).push(f)
+    }
+    for (const [dest, group] of byDir) enqueueUploads(group, dest)
+  }
+
   return (
     <>
       <div
@@ -69,6 +87,7 @@ export default function UploadZone({ uploads, enqueueUploads, retryUpload, cance
           ${dragging ? 'border-blue-500 bg-blue-950/30 scale-[1.01]' : 'border-slate-800 bg-gradient-to-r from-blue-900/20 via-slate-900 to-indigo-900/20 hover:border-slate-700'}`}>
         <input ref={inputRef} type="file" multiple className="hidden"
           onChange={e => { if (e.target.files?.length) enqueueUploads(e.target.files, currentFolder); e.target.value = '' }} />
+        <input ref={folderInputRef} type="file" webkitdirectory="" className="hidden" onChange={onFolderPicked} />
         <div className="flex flex-col items-center gap-3 pointer-events-none">
           <div className={`p-4 rounded-2xl border transition ${dragging ? 'bg-blue-600/20 border-blue-500/50 scale-110' : 'bg-slate-950 border-slate-800'}`}>
             {dragging ? <FolderUp className="w-9 h-9 text-blue-400" /> : <UploadCloud className="w-9 h-9 text-blue-400" />}
@@ -79,6 +98,11 @@ export default function UploadZone({ uploads, enqueueUploads, retryUpload, cance
               or <span className="text-blue-400 font-semibold">browse your device</span> &bull; Max {maxUploadMB} MB each
               {currentFolder && <> &bull; saving to <span className="text-blue-300 font-mono">/{currentFolder}</span></>}
             </p>
+            <button
+              onClick={e => { e.stopPropagation(); folderInputRef.current?.click() }}
+              className="pointer-events-auto mt-2.5 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-300 hover:text-white hover:border-slate-600 transition">
+              <FolderUp size={14} /> Upload a whole folder
+            </button>
           </div>
         </div>
       </div>

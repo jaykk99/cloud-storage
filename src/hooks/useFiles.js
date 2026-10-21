@@ -72,7 +72,9 @@ export function useFiles(user, notify) {
         return
       }
       updateUpload(item.id, { status: 'uploading', progress: 0, error: '' })
-      const folder = item.folder ? item.folder.replace(/^\/+|\/+$/g, '') + '/' : ''
+      const folder = item.folder
+        ? item.folder.split('/').filter(s => s && s !== '..' && s !== '.').join('/') + '/'
+        : ''
       const storagePath = `${user.id}/${folder}${Date.now()}_${item.file.name}`
       await withRetry(
         () => uploadFileXHR(item.file, storagePath, {

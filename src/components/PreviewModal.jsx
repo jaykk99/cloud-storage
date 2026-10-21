@@ -5,6 +5,7 @@ import { signedUrl } from '../lib/upload'
 import { Modal, Spinner, FileIconComp } from './ui'
 
 const TEXT_PREVIEW_LIMIT = 200 * 1024 // 200 KB
+const TEXT_SNIPPET = 20000 // characters shown before the truncation note
 
 export default function PreviewModal({ file, onClose, onDownload }) {
   const [url, setUrl] = useState(null)
@@ -24,7 +25,7 @@ export default function PreviewModal({ file, onClose, onDownload }) {
         try {
           const r = await fetch(u)
           const t = await r.text()
-          if (live) setText(t.slice(0, 20000))
+          if (live) setText(t.length > TEXT_SNIPPET ? t.slice(0, TEXT_SNIPPET) + '\n\n… preview truncated (showing first 20,000 characters)' : t)
         } catch { if (live) setError('Could not load text preview.') }
       } else {
         if (live) setUrl(u)
