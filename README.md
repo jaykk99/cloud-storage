@@ -75,7 +75,7 @@ create policy "Users can delete own files"
 Copy `.env.example` to `.env.local` and fill in:
 
 ```
-VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=your-anon-key
 VITE_GEMINI_API_KEY=your-gemini-key   # optional — for AI Copilot
 VITE_MAX_UPLOAD_MB=50                # optional — per-file upload cap
